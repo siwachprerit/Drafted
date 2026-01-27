@@ -37,52 +37,66 @@ const NotificationBell = ({ user, socket }) => {
 
     // Real-time Socket.IO listener
     useEffect(() => {
-        if (!user || !socket) return;
+        if (!user) return;
 
-        console.log('[Socket.IO] NotificationBell using socket:', socket.id);
+        // Use socket prop or get from global
+        const activeSocket = socket || getSocket();
 
-        // The socket prop is now being used directly, so getSocket() is not needed here.
-        // The check `if (socket)` below is technically redundant due to the early return above,
-        // but kept for consistency with the provided instruction snippet.
-        if (socket) {
-            const handleNewNotification = (notification) => {
-                console.log('[Socket.IO] New notification received:', notification);
-
-                // Show live popup
-                setLiveNotification(notification);
-
-                // Shake the bell
-                setIsShaking(true);
-                setTimeout(() => setIsShaking(false), 1000);
-
-                // Add to list and set unread
-                setNotifications(prev => [notification, ...prev]);
-                setHasUnread(true);
-
-                // Auto-dismiss popup after 4 seconds
-                setTimeout(() => {
-                    setLiveNotification(null);
-                }, 4000);
-            };
-
-            const handleRemoveNotification = (notificationId) => {
-                console.log('[Socket.IO] Removing notification:', notificationId);
-                setNotifications(prev => prev.filter(n => n._id !== notificationId));
-
-                // If it was the live one, hide it
-                setLiveNotification(prev => (prev && prev._id === notificationId ? null : prev));
-            };
-
-            socket.on('new_notification', handleNewNotification);
-            socket.on('remove_notification', handleRemoveNotification);
-            console.log('[Socket.IO] Listener registered for user:', user._id);
-
-            return () => {
-                socket.off('new_notification', handleNewNotification);
-                socket.off('remove_notification', handleRemoveNotification);
-                console.log('[Socket.IO] Listener unregistered');
-            };
+        if (!activeSocket) {
+            console.log('[Socket.IO] NotificationBell: No socket available yet');
+            return;
         }
+
+        console.log('[Socket.IO] NotificationBell using socket:', activeSocket.id || 'connecting...');
+
+        const handleNewNotification = (notification) => {
+            console.log('[Socket.IO] New notification received:', notification);
+
+            // Show live popup
+            setLiveNotification(notification);
+
+            // Shake the bell
+            setIsShaking(true);
+            setTimeout(() => setIsShaking(false), 1000);
+
+            // Add to list and set unread
+            setNotifications(prev => [notification, ...prev]);
+            setHasUnread(true);
+
+            // Auto-dismiss popup after 4 seconds
+            setTimeout(() => {
+                setLiveNotification(null);
+            }, 4000);
+        };
+
+        const handleRemoveNotification = (notificationId) => {
+            console.log('[Socket.IO] Removing notification:', notificationId);
+            setNotifications(prev => prev.filter(n => n._id !== notificationId));
+
+            // If it was the live one, hide it
+            setLiveNotification(prev => (prev && prev._id === notificationId ? null : prev));
+        };
+
+        const registerListeners = () => {
+            activeSocket.on('new_notification', handleNewNotification);
+            activeSocket.on('remove_notification', handleRemoveNotification);
+            console.log('[Socket.IO] Listener registered for user:', user._id);
+        };
+
+        // Register listeners immediately if connected
+        if (activeSocket.connected) {
+            registerListeners();
+        }
+
+        // Also register on connect (handles reconnection)
+        activeSocket.on('connect', registerListeners);
+
+        return () => {
+            activeSocket.off('new_notification', handleNewNotification);
+            activeSocket.off('remove_notification', handleRemoveNotification);
+            activeSocket.off('connect', registerListeners);
+            console.log('[Socket.IO] Listener unregistered');
+        };
     }, [user, socket]);
 
     // Close dropdown on outside click
