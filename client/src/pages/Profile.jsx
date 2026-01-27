@@ -42,11 +42,22 @@ function Profile({ user: currentUser }) {
         if (!currentUser) return toast.error('Sign in to follow');
         try {
             const res = await api.post(`/users/${userId}/follow`);
-            setProfileUser(prev => ({
-                ...prev,
-                isFollowing: res.data.isFollowing,
-                followersCount: res.data.followersCount
-            }));
+            setProfileUser(prev => {
+                const isNowFollowing = res.data.isFollowing;
+                // Since backend doesn't return count, update manually
+                const currentCount = prev.followersCount || prev.followers?.length || 0;
+                const newCount = isNowFollowing ? currentCount + 1 : Math.max(0, currentCount - 1);
+
+                return {
+                    ...prev,
+                    isFollowing: isNowFollowing,
+                    followersCount: newCount,
+                    // Also update followers array if it exists to keep it consistent
+                    followers: isNowFollowing
+                        ? [...(prev.followers || []), currentUser._id]
+                        : (prev.followers || []).filter(id => id !== currentUser._id)
+                };
+            });
 
             // Sync all blogs in the list to match the new follow state
             setBlogs(prev => prev.map(blog => ({
@@ -195,7 +206,10 @@ function Profile({ user: currentUser }) {
                                     setProfileUser(prev => ({
                                         ...prev,
                                         isFollowing: data.isFollowing,
-                                        followersCount: data.followersCount
+                                        isFollowing: data.isFollowing,
+                                        followersCount: data.isFollowing
+                                            ? (prev.followersCount || 0) + 1
+                                            : Math.max(0, (prev.followersCount || 0) - 1)
                                     }));
                                 }}
                                 index={idx}

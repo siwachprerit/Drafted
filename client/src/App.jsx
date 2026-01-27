@@ -20,6 +20,7 @@ import { initSocket, disconnectSocket } from './services/socket';
 function App() {
   const [user, setUser] = useState(null);
   const [theme, setTheme] = useState('light');
+  const [socket, setSocket] = useState(null);
 
   // Theme Logic
   useEffect(() => {
@@ -62,7 +63,8 @@ function App() {
   // Initialize Socket.IO when user is authenticated
   useEffect(() => {
     if (user?._id) {
-      initSocket(user._id);
+      const s = initSocket(user._id);
+      setSocket(s);
     }
     return () => {
       disconnectSocket();
@@ -72,7 +74,7 @@ function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
-      <MainLayout user={user} theme={theme} toggleTheme={toggleTheme}>
+      <MainLayout user={user} theme={theme} toggleTheme={toggleTheme} socket={socket}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />

@@ -88,7 +88,7 @@ function Home() {
                     className="w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 bg-white/30 dark:bg-black/60" />
-                <div className="absolute inset-0 bg-gradient-to-t from-gray-50 via-gray-100/50 to-white/30 dark:from-gray-950 dark:via-gray-900/50 dark:to-black/30" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-50 via-gray-100/50 to-white/30 dark:from-gray-950 dark:via-gray-900/50 dark:to-black/30" />
             </div>
 
             {/* Premium Hero Splash */}

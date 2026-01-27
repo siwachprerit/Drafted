@@ -8,7 +8,7 @@ import { getSocket } from '../services/socket';
 import toast from 'react-hot-toast';
 import NotificationToast from './NotificationToast';
 
-const NotificationBell = ({ user }) => {
+const NotificationBell = ({ user, socket }) => {
     const [notifications, setNotifications] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
     const [hasUnread, setHasUnread] = useState(false);
@@ -37,11 +37,13 @@ const NotificationBell = ({ user }) => {
 
     // Real-time Socket.IO listener
     useEffect(() => {
-        if (!user) return;
+        if (!user || !socket) return;
 
-        const socket = getSocket();
-        console.log('[Socket.IO] NotificationBell checking socket:', socket?.connected ? 'Connected' : 'Disconnected');
+        console.log('[Socket.IO] NotificationBell using socket:', socket.id);
 
+        // The socket prop is now being used directly, so getSocket() is not needed here.
+        // The check `if (socket)` below is technically redundant due to the early return above,
+        // but kept for consistency with the provided instruction snippet.
         if (socket) {
             const handleNewNotification = (notification) => {
                 console.log('[Socket.IO] New notification received:', notification);
@@ -81,7 +83,7 @@ const NotificationBell = ({ user }) => {
                 console.log('[Socket.IO] Listener unregistered');
             };
         }
-    }, [user]);
+    }, [user, socket]);
 
     // Close dropdown on outside click
     useEffect(() => {

@@ -31,7 +31,7 @@ const NavItem = ({ to, icon: Icon, label }) => {
     );
 };
 
-function MainLayout({ children, user, theme, toggleTheme }) {
+function MainLayout({ children, user, theme, toggleTheme, socket }) {
     const location = useLocation();
 
     const handleLogout = () => {
@@ -40,7 +40,7 @@ function MainLayout({ children, user, theme, toggleTheme }) {
     };
 
     return (
-        <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-950 transition-colors duration-500 font-inter selection:bg-indigo-500/30">
+        <div className="min-h-screen flex flex-col bg-indigo-100 dark:bg-gray-950 transition-colors duration-500 font-inter selection:bg-indigo-500/30">
             {/* Glass Navbar */}
             <header className="fixed top-0 left-0 right-0 z-50">
                 <div className="mx-4 mt-4">
@@ -62,7 +62,7 @@ function MainLayout({ children, user, theme, toggleTheme }) {
                                     <>
                                         <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />
                                         <NavItem to={`/profile/${user._id}`} icon={User} label="Profile" />
-                                        <NotificationBell user={user} />
+                                        <NotificationBell user={user} socket={socket} />
                                         <button
                                             onClick={handleLogout}
                                             className="p-2.5 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-red-500/50"

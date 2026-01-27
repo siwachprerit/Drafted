@@ -171,8 +171,8 @@ function BlogDetails({ user, setUser }) {
                 style={{ opacity: bgOpacity, scale: bgScale }}
                 className="fixed inset-0 z-0 pointer-events-none"
             >
-                <div className="absolute inset-0 bg-black/60 z-10" />
-                <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-900/50 to-black/30 z-10" />
+                <div className="absolute inset-0 bg-white/40 dark:bg-black/40 z-10 transition-colors duration-500" />
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-100/80 via-white/20 to-transparent dark:from-gray-900/80 dark:via-black/20 dark:to-transparent z-10 transition-colors duration-500" />
                 <img
                     src={blog.coverImage || '/images/default-cover.png'}
                     alt="Ambient Background"

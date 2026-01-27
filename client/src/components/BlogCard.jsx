@@ -6,7 +6,15 @@ import toast from 'react-hot-toast';
 
 function BlogCard({ blog, user, setUser, onLike, onFollow, index }) {
     const isLiked = user && blog.likes?.some(likeId => likeId.toString() === user._id);
-    const isFollowed = user && blog.author?._id !== user._id && user.following?.includes(blog.author?._id);
+    const isFollowed = user && blog.author?._id !== user._id && user.following?.some(id => id.toString() === blog.author?._id.toString());
+
+    // Debug Log
+    if (blog.author && user) {
+        // console.log(`[BlogCard Debug] Blog: ${blog.title}, Author: ${blog.author.name} (${blog.author._id})`);
+        // console.log(`[BlogCard Debug] User Following:`, user.following);
+        // console.log(`[BlogCard Debug] Is Followed:`, isFollowed);
+    }
+
     const isOwner = user && blog.author?._id === user._id;
     const isSaved = user?.savedBlogs?.includes(blog._id);
 
@@ -68,9 +76,9 @@ function BlogCard({ blog, user, setUser, onLike, onFollow, index }) {
                 <img
                     src={blog.coverImage || '/images/default-cover.png'}
                     alt=""
-                    className="w-full h-full object-cover filter blur-xl scale-125 opacity-0 dark:opacity-100 transition-opacity duration-300"
+                    className="w-full h-full object-cover filter blur-xl scale-125 opacity-100 transition-opacity duration-300"
                 />
-                <div className="absolute inset-0 bg-white dark:bg-black/70 backdrop-blur-sm transition-colors duration-300"></div>
+                <div className="absolute inset-0 bg-white/60 dark:bg-black/70 backdrop-blur-sm transition-colors duration-300"></div>
             </div>
 
             <div className="relative z-10 p-8">
@@ -101,19 +109,36 @@ function BlogCard({ blog, user, setUser, onLike, onFollow, index }) {
                                 e.stopPropagation();
                                 try {
                                     const res = await api.post(`/users/${blog.author._id}/follow`);
+
+                                    // Update global user state for immediate consistency across app
+                                    if (setUser) {
+                                        setUser(prev => {
+                                            if (!prev) return prev;
+                                            const isNowFollowing = res.data.isFollowing;
+                                            const targetId = blog.author._id;
+
+                                            // Update following list
+                                            const newFollowing = isNowFollowing
+                                                ? [...(prev.following || []), targetId]
+                                                : (prev.following || []).filter(id => id.toString() !== targetId.toString());
+
+                                            return { ...prev, following: newFollowing };
+                                        });
+                                    }
+
                                     toast.success(res.data.isFollowing ? `Followed ${blog.author.name}!` : `Unfollowed ${blog.author.name}`);
                                     if (onFollow) onFollow(res.data);
                                 } catch (err) {
                                     toast.error('Follow action failed');
                                 }
                             }}
-                            className={`px-5 py-2 text-sm font-bold border rounded-full transition-all duration-300 min-w-[100px] overflow-hidden group/follow ${blog.isFollowing
+                            className={`px-5 py-2 text-sm font-bold border rounded-full transition-all duration-300 min-w-[100px] overflow-hidden group/follow ${showFollow
                                 ? 'bg-white/10 backdrop-blur-xl border-gray-200 dark:border-white/20 text-gray-900 dark:text-white hover:bg-black/5 dark:hover:bg-white/20'
                                 : 'bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-500/20'
                                 }`}
                         >
                             <span className="relative z-10 flex items-center justify-center gap-2">
-                                {blog.isFollowing ? (
+                                {showFollow ? (
                                     <>
                                         <span className="group-hover/follow:hidden">Following</span>
                                         <span className="hidden group-hover/follow:inline text-red-300 transition-colors">Unfollow</span>

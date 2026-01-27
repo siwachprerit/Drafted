@@ -20,6 +20,11 @@ export const initSocket = (userId) => {
         }
     });
 
+    // If socket was already created but re-initialized (or reused), ensure we join
+    if (socket.connected && userId) {
+        socket.emit('join', userId);
+    }
+
     socket.on('disconnect', () => {
         console.log('[Socket.IO] Disconnected');
     });
