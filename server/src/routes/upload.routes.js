@@ -1,24 +1,12 @@
+// upload.routes.js - Image upload route with Cloudinary
 import express from 'express';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+import cloudinary from '../config/cloudinary.js';
 
 const router = express.Router();
 
-// Configure storage
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const uploadDir = 'uploads/';
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir);
-        }
-        cb(null, uploadDir);
-    },
-    filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
-    }
-});
+// Use memory storage for Cloudinary uploads
+const storage = multer.memoryStorage();
 
 const upload = multer({
     storage: storage,
@@ -26,29 +14,39 @@ const upload = multer({
     fileFilter: function (req, file, cb) {
         const filetypes = /jpeg|jpg|png|webp|gif/;
         const mimetype = filetypes.test(file.mimetype);
-        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
 
-        if (mimetype && extname) {
+        if (mimetype) {
             return cb(null, true);
         }
         cb(new Error('Only images are allowed!'));
     }
 });
 
-// Upload route
-router.post('/', upload.single('image'), (req, res) => {
+// Upload to Cloudinary
+router.post('/', upload.single('image'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ message: 'Please upload a file' });
         }
-        const filePath = `/uploads/${req.file.filename}`;
+
+        // Convert buffer to base64 data URI
+        const b64 = Buffer.from(req.file.buffer).toString('base64');
+        const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+
+        // Upload to Cloudinary
+        const result = await cloudinary.uploader.upload(dataURI, {
+            folder: 'drafted',
+            resource_type: 'image',
+        });
+
         res.status(200).json({
             message: 'Image uploaded successfully',
-            imageUrl: filePath
+            imageUrl: result.secure_url
         });
     } catch (error) {
+        console.error('Upload error:', error);
         res.status(500).json({
-            message: 'Internal server error',
+            message: 'Image upload failed',
             error: error.message
         });
     }
