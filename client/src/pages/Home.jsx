@@ -20,7 +20,7 @@ function Home() {
         const fetchBlogs = async () => {
             try {
                 const response = await api.get('/blogs');
-                setBlogs(response.data);
+                setBlogs(response.data.blogs || response.data);
             } catch (error) {
                 console.error('Failed to fetch blogs:', error.response?.data?.message || error.message);
             } finally {
@@ -327,7 +327,7 @@ function Home() {
                                 {blogs.map((blog) => (
                                     <motion.div variants={item} key={blog._id}>
                                         <Link
-                                            to={`/blog/${blog._id}`}
+                                            to={`/blog/${blog.slug || blog._id}`}
                                             className="group relative block h-full bg-white dark:bg-white/5 dark:backdrop-blur-md rounded-[32px] overflow-hidden hover:bg-gray-50 dark:hover:bg-white/10 transition-all duration-500 border border-gray-200 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20 hover:shadow-2xl hover:shadow-indigo-500/20"
                                         >
                                             {/* Blog Cover Image */}
@@ -355,7 +355,7 @@ function Home() {
                                                     {blog.content}
                                                 </p>
 
-                                                <Link to={`/profile/${blog.author?._id}`} className="flex items-center gap-3 pt-6 border-t border-gray-200 dark:border-white/10 mt-auto group/author">
+                                                <div className="flex items-center gap-3 pt-6 border-t border-gray-200 dark:border-white/10 mt-auto group/author">
                                                     <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center font-bold text-gray-700 dark:text-gray-300 overflow-hidden border border-gray-200 dark:border-white/10 group-hover/author:border-indigo-500/50 transition-colors">
                                                         {blog.author?.profilePicture ? (
                                                             <img src={blog.author.profilePicture} alt={blog.author.name} className="w-full h-full object-cover" />
@@ -371,7 +371,7 @@ function Home() {
                                                             {Math.max(1, Math.ceil(blog.content.split(/\s+/).length / 200))} min read • {new Date(blog.createdAt).toLocaleDateString()}
                                                         </div>
                                                     </div>
-                                                </Link>
+                                                </div>
                                             </div>
                                         </Link>
                                     </motion.div>

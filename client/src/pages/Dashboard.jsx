@@ -385,7 +385,7 @@ function BlogCard({ blog, onDelete, onUnsave, isSavedMock }) {
                     </div>
                 </div>
 
-                <Link to={`/blog/${blog._id}`} className="block flex-grow group-hover:cursor-pointer">
+                <Link to={`/blog/${blog.slug || blog._id}`} className="block flex-grow group-hover:cursor-pointer">
                     <h3 className="text-2xl font-heading italic font-medium text-gray-900 dark:text-white mb-3 line-clamp-2 leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                         {blog.title}
                     </h3>

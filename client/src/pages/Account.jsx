@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Mail, AtSign, Save, Loader, Shield, LogOut, AlertOctagon } from 'lucide-react';
+import { User, Mail, AtSign, Save, Loader, Shield, LogOut, AlertOctagon, PenTool } from 'lucide-react';
 import toast from 'react-hot-toast';
 import FollowListModal from '../components/FollowListModal';
 
@@ -13,7 +13,8 @@ function Account() {
         email: '',
         profilePicture: '',
         followers: [],
-        following: []
+        following: [],
+        bio: ''
     });
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -39,7 +40,8 @@ function Account() {
                 email: response.data.email,
                 profilePicture: response.data.profilePicture,
                 followers: response.data.followers || [],
-                following: response.data.following || []
+                following: response.data.following || [],
+                bio: response.data.bio || ''
             });
         } catch (error) {
             console.error('Failed to fetch profile:', error);
@@ -125,6 +127,25 @@ function Account() {
                                         className="w-full pl-11 pr-4 py-3 bg-white/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all outline-none font-display"
                                         placeholder="Your Name"
                                     />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label htmlFor="bio" className="text-sm font-medium text-gray-700 dark:text-gray-300">Bio</label>
+                                    <div className="relative">
+                                        <PenTool className="absolute left-3 top-3 text-gray-400" size={18} />
+                                        <textarea
+                                            id="bio"
+                                            value={user.bio}
+                                            onChange={handleChange}
+                                            maxLength={150}
+                                            rows={3}
+                                            className="w-full pl-11 pr-4 py-3 bg-white/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all outline-none font-display resize-none"
+                                            placeholder="Tell your story..."
+                                        />
+                                        <div className="text-right text-xs text-gray-400 mt-1">
+                                            {user.bio?.length || 0}/150
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 

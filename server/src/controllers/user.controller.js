@@ -44,8 +44,7 @@ export const followUser = async (req, res) => {
             const notification = new Notification({
                 recipient: userToFollow._id,
                 sender: currentUser._id,
-                type: 'follow',
-                content: `${currentUser.name} started following you.`
+                type: 'follow'
             });
             await notification.save();
 
@@ -72,7 +71,9 @@ export const getUserProfile = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        const blogs = await Blog.find({ author: user._id, isPublished: true }).sort({ createdAt: -1 });
+        const blogs = await Blog.find({ author: user._id, isPublished: true })
+            .sort({ createdAt: -1 })
+            .populate('author', 'name email profilePicture');
 
         // Check if current user is following this user
         let isFollowing = false;
@@ -148,7 +149,39 @@ export const getUserFollowing = async (req, res) => {
 
         res.status(200).json(followingWithStatus);
     } catch (error) {
-        console.error('Get following error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+export const updateProfile = async (req, res) => {
+    try {
+        const { name, bio, profilePicture, coverImage, socialLinks } = req.body;
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        if (name) user.name = name;
+        if (bio !== undefined) user.bio = bio;
+        if (profilePicture) user.profilePicture = profilePicture;
+        if (coverImage) user.coverImage = coverImage;
+        if (socialLinks) {
+            user.socialLinks = {
+                ...user.socialLinks,
+                ...socialLinks
+            };
+        }
+
+        await user.save();
+
+        // Return without password
+        const userObj = user.toObject();
+        delete userObj.password;
+
+        res.status(200).json(userObj);
+    } catch (error) {
+        console.error('Update profile error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 };

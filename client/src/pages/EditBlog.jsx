@@ -5,6 +5,7 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Send, Save, Tag, AlignLeft, X } from 'lucide-react';
+import RichTextEditor from '../components/RichTextEditor';
 
 function EditBlog() {
     const { id } = useParams();
@@ -41,7 +42,7 @@ function EditBlog() {
         fetchBlog();
     }, [id, navigate]);
 
-    const wordCount = content.trim().split(/\s+/).filter(w => w.length > 0).length;
+    const wordCount = content.replace(/<[^>]*>/g, ' ').trim().split(/\s+/).filter(w => w.length > 0).length;
     const readTime = Math.max(1, Math.ceil(wordCount / 200));
 
     const handleSubmit = async (e) => {
@@ -160,12 +161,10 @@ function EditBlog() {
                     autoFocus
                 />
 
-                <textarea
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
+                <RichTextEditor
+                    content={content}
+                    onChange={setContent}
                     placeholder="Tell your story..."
-                    className="w-full min-h-[60vh] bg-transparent text-2xl leading-relaxed text-gray-700 dark:text-gray-400 placeholder-gray-400 dark:placeholder-white/10 outline-none resize-none font-display"
-                    style={{ fieldSizing: 'content' }}
                 />
             </motion.div>
 

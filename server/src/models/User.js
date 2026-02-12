@@ -28,6 +28,21 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: '',
     },
+    bio: {
+        type: String,
+        default: '',
+        maxLength: 150
+    },
+    coverImage: {
+        type: String,
+        default: ''
+    },
+    socialLinks: {
+        twitter: String,
+        linkedin: String,
+        website: String,
+        instagram: String
+    },
     followers: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'

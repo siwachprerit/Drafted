@@ -27,6 +27,15 @@ const blogSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    views: {
+        type: Number,
+        default: 0,
+    },
+    slug: {
+        type: String,
+        unique: true,
+        sparse: true,
+    },
     createdAt: {
         type: Date,
         default: Date.now,
@@ -53,6 +62,10 @@ const blogSchema = new mongoose.Schema({
             type: Date,
             default: Date.now,
         },
+        parentId: {
+            type: mongoose.Schema.Types.ObjectId,
+            default: null,
+        }
     }],
 });
 

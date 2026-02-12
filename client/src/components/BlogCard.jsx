@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Heart, MessageCircle, Share2, Bookmark, ArrowRight } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Bookmark, ArrowRight, Eye, BookOpen } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -16,12 +16,12 @@ function BlogCard({ blog, user, setUser, onLike, onFollow, index }) {
     }
 
     const isOwner = user && blog.author?._id === user._id;
-    const isSaved = user?.savedBlogs?.includes(blog._id);
+    const isSaved = user?.savedBlogs?.some(id => id.toString() === blog._id.toString());
 
     // Fallback for isFollowing prop if passed from parent
     const showFollow = blog.isFollowing !== undefined ? blog.isFollowing : isFollowed;
 
-    const contentPreview = blog.content?.substring(0, 400);
+    const contentPreview = blog.content?.replace(/<[^>]*>/g, ' ').trim().substring(0, 400);
     const hasMore = blog.content?.length > 400;
 
     const handleBookmark = async (e) => {
@@ -42,7 +42,7 @@ function BlogCard({ blog, user, setUser, onLike, onFollow, index }) {
                     if (!prev) return prev;
                     const newSaved = data.isSaved
                         ? [...(prev.savedBlogs || []), blog._id]
-                        : (prev.savedBlogs || []).filter(id => id !== blog._id);
+                        : (prev.savedBlogs || []).filter(id => id.toString() !== blog._id.toString());
                     return { ...prev, savedBlogs: newSaved };
                 });
             }
@@ -192,6 +192,14 @@ function BlogCard({ blog, user, setUser, onLike, onFollow, index }) {
                             <MessageCircle size={22} />
                             {blog.comments?.length || 0}
                         </Link>
+                        <div className="flex items-center gap-2 text-base text-gray-500 dark:text-white/60">
+                            <Eye size={22} />
+                            {blog.views || 0}
+                        </div>
+                        <div className="flex items-center gap-2 text-base text-gray-500 dark:text-white/60">
+                            <BookOpen size={22} />
+                            {Math.ceil((blog.content ? blog.content.replace(/<[^>]*>/g, '').split(/\s+/).length : 0) / 200)} min
+                        </div>
                         <button
                             onClick={handleShare}
                             className="text-gray-500 dark:text-white/60 hover:text-gray-900 dark:hover:text-white transition-colors"

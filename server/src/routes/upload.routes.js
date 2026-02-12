@@ -1,11 +1,11 @@
-// upload.routes.js - Image upload route with Cloudinary
 import express from 'express';
 import multer from 'multer';
+import { Readable } from 'stream';
 import cloudinary from '../config/cloudinary.js';
 
 const router = express.Router();
 
-// Use memory storage for Cloudinary uploads
+// ... existing storage/upload config ...
 const storage = multer.memoryStorage();
 
 const upload = multer({
@@ -23,28 +23,44 @@ const upload = multer({
 });
 
 // Upload to Cloudinary
-router.post('/', upload.single('image'), async (req, res) => {
+router.post('/', upload.single('image'), (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ message: 'Please upload a file' });
         }
 
-        // Convert buffer to base64 data URI
-        const b64 = Buffer.from(req.file.buffer).toString('base64');
-        const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+        console.log('Starting Cloudinary upload stream...');
 
-        // Upload to Cloudinary
-        const result = await cloudinary.uploader.upload(dataURI, {
-            folder: 'drafted',
-            resource_type: 'image',
-        });
+        // Use upload_stream for better performance and reliability
+        const uploadStream = cloudinary.uploader.upload_stream(
+            {
+                folder: 'drafted',
+                resource_type: 'image',
+            },
+            (error, result) => {
+                if (error) {
+                    console.error('Cloudinary Upload Error:', error);
+                    return res.status(500).json({
+                        message: 'Image upload failed',
+                        error: error.message
+                    });
+                }
+                console.log('Cloudinary upload success:', result.secure_url);
+                res.status(200).json({
+                    message: 'Image uploaded successfully',
+                    imageUrl: result.secure_url
+                });
+            }
+        );
 
-        res.status(200).json({
-            message: 'Image uploaded successfully',
-            imageUrl: result.secure_url
-        });
+        // Convert buffer to stream
+        const bufferStream = new Readable();
+        bufferStream.push(req.file.buffer);
+        bufferStream.push(null);
+        bufferStream.pipe(uploadStream);
+
     } catch (error) {
-        console.error('Upload error:', error);
+        console.error('Upload route error:', error);
         res.status(500).json({
             message: 'Image upload failed',
             error: error.message

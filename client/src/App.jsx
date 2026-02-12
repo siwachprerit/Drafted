@@ -14,6 +14,7 @@ import Dashboard from './pages/Dashboard';
 import Account from './pages/Account';
 import Feed from './pages/Feed';
 import Profile from './pages/Profile';
+import Explore from './pages/Explore';
 import api from './services/api';
 import { initSocket, disconnectSocket } from './services/socket';
 
@@ -83,6 +84,7 @@ function App() {
           <Route path="/edit-blog/:id" element={<EditBlog />} />
           <Route path="/blog/:id" element={<BlogDetails user={user} setUser={setUser} />} />
           <Route path="/feed" element={<Feed user={user} setUser={setUser} />} />
+          <Route path="/explore" element={<Explore />} />
           <Route
             path="/dashboard"
             element={

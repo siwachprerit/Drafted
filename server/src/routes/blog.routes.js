@@ -12,6 +12,9 @@ import {
     addComment,
     toggleSaveBlog,
     getSavedBlogs,
+    deleteComment,
+    incrementView,
+    getTags
 } from '../controllers/blog.controller.js';
 import { protect } from '../middlewares/auth.middleware.js';
 
@@ -23,6 +26,9 @@ router.post('/', protect, createBlog);
 // GET /api/blogs
 router.get('/', getAllBlogs);
 
+// GET /api/blogs/tags
+router.get('/tags', getTags);
+
 // GET /api/blogs/my (protected)
 router.get('/my', protect, getMyBlogs);
 
@@ -31,6 +37,9 @@ router.get('/saved', protect, getSavedBlogs);
 
 // GET /api/blogs/:id
 router.get('/:id', getBlogById);
+
+// POST /api/blogs/:id/view (public)
+router.post('/:id/view', incrementView);
 
 // GET /api/blogs/:id/edit (protected)
 router.get('/:id/edit', protect, getBlogForEdit);
@@ -47,6 +56,9 @@ router.post('/:id/like', protect, likeBlog);
 
 // POST /api/blogs/:id/comment (protected)
 router.post('/:id/comment', protect, addComment);
+
+// DELETE /api/blogs/:id/comment/:commentId (protected)
+router.delete('/:id/comment/:commentId', protect, deleteComment);
 
 // POST /api/blogs/:id/save (protected)
 router.post('/:id/save', protect, toggleSaveBlog);

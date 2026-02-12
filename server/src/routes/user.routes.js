@@ -1,6 +1,6 @@
 // user.routes.js - User routes
 import express from 'express';
-import { followUser, getUserProfile, getUserFollowers, getUserFollowing } from '../controllers/user.controller.js';
+import { followUser, getUserProfile, getUserFollowers, getUserFollowing, updateProfile } from '../controllers/user.controller.js';
 import { protect, optionalProtect } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
@@ -16,5 +16,8 @@ router.get('/:userId/followers', getUserFollowers);
 
 // GET /api/users/:userId/following (includes follow status if authenticated)
 router.get('/:userId/following', optionalProtect, getUserFollowing);
+
+// PUT /api/users/profile (protected)
+router.put('/profile', protect, updateProfile);
 
 export default router;

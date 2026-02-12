@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Send, Save, Tag, Clock, AlignLeft, Check, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import RichTextEditor from '../components/RichTextEditor';
 
 function CreateBlog() {
     const navigate = useNavigate();
@@ -20,8 +21,39 @@ function CreateBlog() {
         document.title = 'Write a Story | Drafted';
     }, []);
 
-    const wordCount = content.trim().split(/\s+/).filter(w => w.length > 0).length;
+    const wordCount = content.replace(/<[^>]*>/g, ' ').trim().split(/\s+/).filter(w => w.length > 0).length;
     const readTime = Math.max(1, Math.ceil(wordCount / 200));
+
+    // Auto-save Logic
+    const DRAFT_KEY = 'draft_blog';
+
+    useEffect(() => {
+        const savedDraft = localStorage.getItem(DRAFT_KEY);
+        if (savedDraft) {
+            try {
+                const parsed = JSON.parse(savedDraft);
+                // Only restore if there is actual content/title
+                if (parsed.title || parsed.content) {
+                    setTitle(parsed.title || '');
+                    setContent(parsed.content || '');
+                    setTags(parsed.tags || '');
+                    setCoverImage(parsed.coverImage || '/images/default-cover.png');
+                    setIsPublished(parsed.isPublished || false);
+                    toast('Draft restored', { icon: '📂', style: { borderRadius: '10px', background: '#333', color: '#fff' } });
+                }
+            } catch (e) {
+                console.error('Failed to parse draft', e);
+            }
+        }
+    }, []);
+
+    useEffect(() => {
+        // Debounce save slightly or just save on every change (local storage is fast enough for this)
+        const draft = { title, content, tags, coverImage, isPublished };
+        if (title || content || tags.length > 0) {
+            localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+        }
+    }, [title, content, tags, coverImage, isPublished]);
 
     const handleSubmit = async (e) => {
         e?.preventDefault();
@@ -29,6 +61,10 @@ function CreateBlog() {
         try {
             const tagsArray = tags.split(',').map(t => t.trim()).filter(t => t !== '');
             await api.post('/blogs', { title, content, tags: tagsArray, isPublished, coverImage });
+
+            // Clear draft on success
+            localStorage.removeItem(DRAFT_KEY);
+
             toast.success(isPublished ? 'Story published!' : 'Draft saved.');
             navigate('/dashboard');
         } catch (error) {
@@ -131,12 +167,10 @@ function CreateBlog() {
                     autoFocus
                 />
 
-                <textarea
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
+                <RichTextEditor
+                    content={content}
+                    onChange={setContent}
                     placeholder="Tell your story..."
-                    className="w-full min-h-[60vh] bg-transparent text-2xl leading-relaxed text-gray-700 dark:text-gray-400 placeholder-gray-400 dark:placeholder-white/10 outline-none resize-none font-display"
-                    style={{ fieldSizing: 'content' }}
                 />
             </motion.div>
 

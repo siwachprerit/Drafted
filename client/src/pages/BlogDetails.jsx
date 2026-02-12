@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../services/api';
 import { motion, useScroll, useSpring, useTransform, AnimatePresence } from 'framer-motion';
-import { Clock, Calendar, Hash, Share2, Twitter, Linkedin, Facebook, Heart, MessageCircle, ArrowLeft, Send, X, Copy, Mail, Edit2, Bookmark } from 'lucide-react';
+import { Clock, Calendar, Hash, Share2, Twitter, Linkedin, Facebook, Heart, MessageCircle, ArrowLeft, Send, X, Copy, Mail, Edit2, Bookmark, MoreVertical, Trash2, Eye, BookOpen } from 'lucide-react';
 import toast from 'react-hot-toast';
+import DOMPurify from 'dompurify';
 
 function BlogDetails({ user, setUser }) {
     const { id } = useParams();
@@ -11,12 +12,32 @@ function BlogDetails({ user, setUser }) {
     const [notFound, setNotFound] = useState(false);
     const [isLiked, setIsLiked] = useState(false);
     const [likesCount, setLikesCount] = useState(0);
-    const [commentText, setCommentText] = useState('');
+    const [comment, setComment] = useState('');
+    const [isFollowLoading, setIsFollowLoading] = useState(false);
+    const [readingTime, setReadingTime] = useState(1);
     const [comments, setComments] = useState([]);
     const [showShareModal, setShowShareModal] = useState(false);
 
+    // Comment Menu State
+    const [activeCommentMenu, setActiveCommentMenu] = useState(null); // commentId
+    const [deleteModal, setDeleteModal] = useState({ show: false, commentId: null });
+    const menuRef = useRef(null);
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setActiveCommentMenu(null);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
     // Check if saved
-    const isSaved = user?.savedBlogs?.includes(id);
+    const isSaved = user?.savedBlogs?.some(blogId => blogId.toString() === id);
 
     const { scrollY, scrollYProgress } = useScroll();
     const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
@@ -31,25 +52,36 @@ function BlogDetails({ user, setUser }) {
     const heroOpacity = useTransform(scrollY, [0, 400], [1, 0]); // Fade out
 
     useEffect(() => {
-        const fetchBlog = async () => {
+        const incrementView = async () => {
             try {
-                const response = await api.get(`/blogs/${id}`);
-                const data = response.data;
-                setBlog(data);
-                setComments(data.comments || []);
-                setLikesCount(data.likes?.length || 0);
-
-                if (data.title) {
-                    document.title = `${data.title} | Drafted`;
+                const viewedKey = `viewed_${id}`;
+                if (!sessionStorage.getItem(viewedKey)) {
+                    await api.post(`/blogs/${id}/view`);
+                    sessionStorage.setItem(viewedKey, 'true');
                 }
             } catch (error) {
-                console.error('Failed to fetch blog:', error.response?.data?.message || error.message);
-                if (error.response?.status === 404) {
-                    setNotFound(true);
-                }
+                console.error('Failed to increment view:', error);
             }
         };
+        incrementView();
+    }, [id]);
 
+    const fetchBlog = async () => {
+        try {
+            const response = await api.get(`/blogs/${id}`);
+            const data = response.data;
+            setBlog(data);
+            setComments(data.comments || []);
+            setLikesCount(data.likes?.length || 0);
+            setReadingTime(Math.max(1, Math.ceil((data.content || '').split(/\s+/).length / 200)));
+            document.title = `${data.title} | Drafted`;
+        } catch (error) {
+            console.error('Failed to fetch blog:', error);
+            setNotFound(true);
+        }
+    };
+
+    useEffect(() => {
         fetchBlog();
     }, [id]);
 
@@ -96,7 +128,7 @@ function BlogDetails({ user, setUser }) {
                     if (!prev) return prev;
                     const newSaved = data.isSaved
                         ? [...(prev.savedBlogs || []), id]
-                        : (prev.savedBlogs || []).filter(savedId => savedId !== id);
+                        : (prev.savedBlogs || []).filter(savedId => savedId.toString() !== id);
                     return { ...prev, savedBlogs: newSaved };
                 });
             }
@@ -106,26 +138,54 @@ function BlogDetails({ user, setUser }) {
         }
     };
 
+    const [replyingTo, setReplyingTo] = useState(null); // commentId
+    const [replyText, setReplyText] = useState('');
+
     const handleComment = async (e) => {
         e.preventDefault();
+        postComment(comment, null);
+    };
+
+    const handleReply = async (e, parentId) => {
+        e.preventDefault();
+        postComment(replyText, parentId);
+    };
+
+    const postComment = async (content, parentId) => {
         if (!user) {
             toast.error('Sign in to join the discussion');
             return;
         }
 
-        const wordCount = commentText.trim().split(/\s+/).filter(Boolean).length;
-        if (wordCount > 30) {
-            toast.error('Comment too long (max 30 words)');
+        const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
+        if (wordCount > 100) {
+            toast.error('Comment too long (max 100 words)');
             return;
         }
 
         try {
-            const response = await api.post(`/blogs/${id}/comment`, { content: commentText });
+            const response = await api.post(`/blogs/${id}/comment`, { content, parentId });
             setComments(response.data);
-            setCommentText('');
+            setComment('');
+            setReplyText('');
+            setReplyingTo(null);
             toast.success('Comment posted');
         } catch (error) {
             toast.error(error.response?.data?.message || 'Failed to post comment');
+        }
+    };
+
+    const confirmDeleteComment = async () => {
+        const commentId = deleteModal.commentId;
+        if (!commentId) return;
+
+        try {
+            const res = await api.delete(`/blogs/${id}/comment/${commentId}`);
+            setComments(res.data);
+            toast.success('Comment deleted');
+            setDeleteModal({ show: false, commentId: null });
+        } catch (err) {
+            toast.error('Failed to delete comment');
         }
     };
 
@@ -254,10 +314,58 @@ function BlogDetails({ user, setUser }) {
                         </motion.div>
                     </div>
                 )}
+
+            </AnimatePresence>
+
+            {/* Delete Confirmation Modal */}
+            <AnimatePresence>
+                {
+                    deleteModal.show && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                onClick={() => setDeleteModal({ show: false, commentId: null })}
+                                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                            />
+                            <motion.div
+                                initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                                className="relative w-full max-w-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-[24px] overflow-hidden shadow-2xl"
+                            >
+                                <div className="p-6 text-center">
+                                    <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-500/10 flex items-center justify-center mx-auto mb-4 text-red-500">
+                                        <Trash2 size={24} />
+                                    </div>
+                                    <h3 className="text-xl font-heading italic text-gray-900 dark:text-white mb-2">Delete Comment?</h3>
+                                    <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
+                                        Are you sure you want to delete this comment? This action cannot be undone.
+                                    </p>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => setDeleteModal({ show: false, commentId: null })}
+                                            className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 font-bold text-sm hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={confirmDeleteComment}
+                                            className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-bold text-sm hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )
+                }
             </AnimatePresence>
 
             {/* Immersive Hero Section */}
-            <header className="relative h-[75vh] w-full overflow-hidden flex items-end justify-center pb-20 px-4 lg:px-8">
+            <header className="relative min-h-[80vh] h-auto w-full overflow-hidden flex items-end justify-center pb-20 pt-40 px-4 lg:px-8">
                 <div className="absolute inset-0 mx-4 lg:mx-8 rounded-[40px] overflow-hidden shadow-2xl">
                     <motion.div
                         style={{ y: heroY, opacity: heroOpacity, scale: heroScale }}
@@ -292,8 +400,18 @@ function BlogDetails({ user, setUser }) {
                                     </>
                                 ) : (
                                     <>
-                                        <Clock size={14} />
-                                        Draft
+                                        <div className="flex items-center gap-2">
+                                            <Clock size={16} />
+                                            <span>{formatTimeElapsed(blog.createdAt)}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <BookOpen size={16} />
+                                            <span>{readingTime} min read</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Eye size={16} />
+                                            <span>{blog.views || 0} views</span>
+                                        </div>
                                     </>
                                 )}
                             </span>
@@ -342,7 +460,7 @@ function BlogDetails({ user, setUser }) {
                         </div>
                     </motion.div>
                 </div>
-            </header>
+            </header >
 
             <div className="max-w-7xl mx-auto px-4 lg:px-8 -mt-20 relative z-20 grid grid-cols-1 lg:grid-cols-12 gap-6">
                 {/* Main Content Column */}
@@ -379,7 +497,7 @@ function BlogDetails({ user, setUser }) {
                                     onClick={handleBookmark}
                                     className={`flex-1 py-4 px-6 rounded-2xl bg-white/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 text-gray-900 dark:text-white font-bold transition-all flex items-center justify-center gap-3 group border border-gray-200 dark:border-white/10 ${isSaved ? 'border-blue-500/50 bg-blue-500/10 dark:bg-blue-500/5' : 'hover:border-indigo-500/50'}`}
                                 >
-                                    <Bookmark className={`transition-all ${isSaved ? 'fill-blue-500 text-blue-500 scale-110' : 'group-hover:scale-110 group-hover:text-blue-400 text-gray-400 dark:text-white'}`} size={24} />
+                                    <Bookmark className={`transition-all ${isSaved ? 'text-blue-500 scale-110' : 'group-hover:scale-110 group-hover:text-blue-400 text-gray-400 dark:text-white'}`} fill={isSaved ? "currentColor" : "none"} size={24} />
                                     <span>{isSaved ? 'Saved' : 'Save'}</span>
                                 </button>
                             </div>
@@ -392,18 +510,18 @@ function BlogDetails({ user, setUser }) {
                             <form onSubmit={handleComment} className="mb-12">
                                 <div className="relative">
                                     <textarea
-                                        value={commentText}
-                                        onChange={(e) => setCommentText(e.target.value)}
+                                        value={comment}
+                                        onChange={(e) => setComment(e.target.value)}
                                         placeholder="Add your thoughts... (max 30 words)"
-                                        className="w-full bg-white/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-3xl p-6 text-gray-900 dark:text-white text-lg placeholder-gray-500 focus:outline-none focus:border-indigo-500/50 transition-all resize-none min-h-[120px] font-display"
+                                        className="w-full bg-white/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-3xl p-6 text-gray-900 dark:text-white text-lg placeholder-gray-500 dark:placeholder-white/50 focus:outline-none focus:border-indigo-500/50 transition-all resize-none min-h-[120px] font-display"
                                     />
                                     <div className="absolute bottom-4 right-4 flex items-center gap-4">
-                                        <span className={`text-xs font-bold tracking-widest uppercase ${commentText.trim().split(/\s+/).filter(Boolean).length > 30 ? 'text-red-500' : 'text-gray-500'}`}>
-                                            {commentText.trim().split(/\s+/).filter(Boolean).length}/30 Words
+                                        <span className={`text-xs font-bold tracking-widest uppercase ${comment.trim().split(/\s+/).filter(Boolean).length > 30 ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>
+                                            {comment.trim().split(/\s+/).filter(Boolean).length}/30 Words
                                         </span>
                                         <button
                                             type="submit"
-                                            disabled={!commentText.trim()}
+                                            disabled={!comment.trim()}
                                             className="p-3 bg-gray-900 dark:bg-white text-white dark:text-black rounded-full hover:scale-110 transition-transform disabled:opacity-50 disabled:scale-100"
                                         >
                                             <Send size={20} />
@@ -416,32 +534,23 @@ function BlogDetails({ user, setUser }) {
                                 <h3 className="text-xl font-heading text-gray-500 dark:text-white/50 mb-4">{comments.length} {comments.length === 1 ? 'comment' : 'comments'}</h3>
 
                                 {comments.length > 0 ? (
-                                    comments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map((comment, index) => (
-                                        <motion.div
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            key={index}
-                                            className="relative p-4 rounded-xl bg-gray-50 dark:bg-black/10 backdrop-blur-sm border border-gray-200 dark:border-white/5 flex gap-3"
-                                        >
-                                            <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-200 dark:border-white/5 flex-shrink-0">
-                                                {comment.user?.profilePicture ? (
-                                                    <img src={comment.user.profilePicture} className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="w-full h-full bg-gray-700 flex items-center justify-center text-white/50 text-[10px] font-bold">
-                                                        {comment.user?.name?.charAt(0) || 'U'}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="flex-grow">
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-gray-900 dark:text-white/80 text-xs mb-0.5">{comment.user?.name}</span>
-                                                    <p className="text-gray-600 dark:text-gray-400 font-display text-[13px] leading-relaxed pr-16">{comment.content}</p>
-                                                </div>
-                                                <div className="absolute top-4 right-4 text-[9px] text-gray-600 uppercase font-bold tracking-tighter">
-                                                    {formatTimeElapsed(comment.createdAt)}
-                                                </div>
-                                            </div>
-                                        </motion.div>
+                                    comments.filter(c => !c.parentId).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map((comment) => (
+                                        <CommentThread
+                                            key={comment._id}
+                                            comment={comment}
+                                            allComments={comments}
+                                            user={user}
+                                            blog={blog}
+                                            activeCommentMenu={activeCommentMenu}
+                                            setActiveCommentMenu={setActiveCommentMenu}
+                                            setDeleteModal={setDeleteModal}
+                                            replyingTo={replyingTo}
+                                            setReplyingTo={setReplyingTo}
+                                            replyText={replyText}
+                                            setReplyText={setReplyText}
+                                            handleReply={handleReply}
+                                            menuRef={menuRef}
+                                        />
                                     ))
                                 ) : (
                                     <div className="text-center py-10 p-6 rounded-2xl border border-dashed border-gray-300 dark:border-white/5 text-gray-500 dark:text-gray-600 font-display text-sm">
@@ -592,6 +701,162 @@ const formatTimeElapsed = (dateString) => {
     if (diffInHours > 0) return `${diffInHours} ${diffInHours === 1 ? 'hour' : 'hours'} ago`;
     if (diffInMins > 0) return `${diffInMins} ${diffInMins === 1 ? 'min' : 'mins'} ago`;
     return 'just now';
+};
+
+const CommentThread = ({
+    comment,
+    allComments,
+    user,
+    blog,
+    activeCommentMenu,
+    setActiveCommentMenu,
+    setDeleteModal,
+    replyingTo,
+    setReplyingTo,
+    replyText,
+    setReplyText,
+    handleReply,
+    menuRef
+}) => {
+    const replies = allComments.filter(c => c.parentId === comment._id).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+    return (
+        <div className="flex flex-col gap-4">
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="relative p-4 rounded-xl bg-gray-50 dark:bg-white/5 backdrop-blur-sm border border-gray-200 dark:border-white/5 flex gap-3 group"
+            >
+                {/* Profile Pic */}
+                <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-200 dark:border-white/5 flex-shrink-0">
+                    {comment.user?.profilePicture ? (
+                        <img src={comment.user.profilePicture} className="w-full h-full object-cover" />
+                    ) : (
+                        <div className="w-full h-full bg-gray-700 flex items-center justify-center text-white/50 text-[10px] font-bold">
+                            {comment.user?.name?.charAt(0) || 'U'}
+                        </div>
+                    )}
+                </div>
+
+                {/* Content */}
+                <div className="flex-grow">
+                    <div className="flex flex-col">
+                        <span className="font-bold text-gray-900 dark:text-white/80 text-xs mb-0.5">{comment.user?.name}</span>
+                        <div
+                            className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 font-display text-lg leading-relaxed mb-3"
+                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(comment.content) }}
+                        />
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => setReplyingTo(replyingTo === comment._id ? null : comment._id)}
+                                className="text-xs font-bold text-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1"
+                            >
+                                <MessageCircle size={14} /> Reply
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="absolute top-4 right-4 flex items-center gap-3">
+                        <span className="text-[9px] text-gray-400 uppercase font-bold tracking-tighter">
+                            {formatTimeElapsed(comment.createdAt)}
+                        </span>
+                        {user && (user._id === comment.user?._id || user._id === blog.author._id) && (
+                            <div className="relative">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setActiveCommentMenu(activeCommentMenu === comment._id ? null : comment._id);
+                                    }}
+                                    className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-white/10"
+                                >
+                                    <MoreVertical size={16} />
+                                </button>
+
+                                <AnimatePresence>
+                                    {activeCommentMenu === comment._id && (
+                                        <motion.div
+                                            ref={menuRef}
+                                            initial={{ opacity: 0, scale: 0.9, y: 5 }}
+                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                            exit={{ opacity: 0, scale: 0.9, y: 5 }}
+                                            className="absolute right-0 top-full mt-1 w-32 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-xl shadow-xl z-20 overflow-hidden"
+                                        >
+                                            <button
+                                                onClick={() => {
+                                                    setDeleteModal({ show: true, commentId: comment._id });
+                                                    setActiveCommentMenu(null);
+                                                }}
+                                                className="w-full px-4 py-2.5 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 transition-colors font-medium"
+                                            >
+                                                <Trash2 size={14} />
+                                                Delete
+                                            </button>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </motion.div>
+
+            {/* Reply Form */}
+            <AnimatePresence>
+                {replyingTo === comment._id && (
+                    <motion.form
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="ml-12"
+                        onSubmit={(e) => handleReply(e, comment._id)}
+                    >
+                        <div className="flex gap-2">
+                            <input
+                                autoFocus
+                                value={replyText}
+                                onChange={(e) => setReplyText(e.target.value)}
+                                placeholder={`Reply to ${comment.user?.name}...`}
+                                className="flex-1 bg-white/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-indigo-500/50"
+                            />
+                            <button
+                                type="submit"
+                                disabled={!replyText.trim()}
+                                className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50"
+                            >
+                                Reply
+                            </button>
+                        </div>
+                    </motion.form>
+                )}
+            </AnimatePresence>
+
+            {/* Nested Replies */}
+            {replies.length > 0 && (
+                <div className="ml-8 pl-4 border-l-2 border-gray-200 dark:border-white/5 space-y-4">
+                    {replies.map(reply => (
+                        <CommentThread
+                            key={reply._id}
+                            comment={reply}
+                            allComments={allComments}
+                            user={user}
+                            blog={blog}
+                            activeCommentMenu={activeCommentMenu}
+                            setActiveCommentMenu={setActiveCommentMenu}
+                            setDeleteModal={setDeleteModal}
+                            replyingTo={replyingTo}
+                            setReplyingTo={setReplyingTo}
+                            replyText={replyText}
+                            setReplyText={setReplyText}
+                            handleReply={handleReply}
+                            menuRef={menuRef}
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
 };
 
 export default BlogDetails;

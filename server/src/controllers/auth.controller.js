@@ -38,6 +38,8 @@ export const registerUser = async (req, res) => {
             name: user.name,
             username: user.username,
             email: user.email,
+            profilePicture: user.profilePicture,
+            bio: user.bio,
             role: user.role,
             token: generateToken(user._id),
         });
@@ -72,6 +74,8 @@ export const loginUser = async (req, res) => {
             name: user.name,
             username: user.username,
             email: user.email,
+            profilePicture: user.profilePicture,
+            bio: user.bio,
             role: user.role,
             token: generateToken(user._id),
         });
@@ -93,7 +97,7 @@ export const updateProfile = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        const { name, email, username, password, profilePicture } = req.body;
+        const { name, email, username, password, profilePicture, coverImage, bio } = req.body;
 
         // Check Username Uniqueness
         if (username && username !== user.username) {
@@ -129,6 +133,24 @@ export const updateProfile = async (req, res) => {
             user.profilePicture = profilePicture;
         }
 
+        // Update Cover Image
+        if (coverImage !== undefined) {
+            user.coverImage = coverImage; // Fix: Add cover image update
+        }
+
+        // Update Bio
+        if (bio !== undefined) {
+            user.bio = bio;
+        }
+
+        // Update Social Links
+        if (req.body.socialLinks) {
+            user.socialLinks = {
+                ...user.socialLinks,
+                ...req.body.socialLinks
+            };
+        }
+
         const updatedUser = await user.save();
 
         res.status(200).json({
@@ -137,6 +159,9 @@ export const updateProfile = async (req, res) => {
             username: updatedUser.username,
             email: updatedUser.email,
             profilePicture: updatedUser.profilePicture,
+            coverImage: updatedUser.coverImage, // Fix: Return cover image
+            bio: updatedUser.bio,
+            socialLinks: updatedUser.socialLinks, // Fix: Return social links
             role: updatedUser.role,
             token: generateToken(updatedUser._id),
         });

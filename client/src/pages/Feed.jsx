@@ -1,32 +1,73 @@
 // Feed.jsx - Premium two-column feed with interactive sidebar
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MessageCircle, Share2, Bookmark, ArrowRight, TrendingUp, Users, Sparkles, Zap, Star, Coffee, PenTool } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Bookmark, ArrowRight, TrendingUp, Users, Sparkles, Zap, Star, Coffee, PenTool, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import BlogCard from '../components/BlogCard';
 
 function Feed({ user, setUser }) {
     const [blogs, setBlogs] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
+    const [isFetchingMore, setIsFetchingMore] = useState(false);
+
+    const [searchParams] = useSearchParams();
+    const searchQuery = searchParams.get('search');
 
     useEffect(() => {
-        document.title = 'Feed | Drafted';
-        fetchBlogs();
-    }, []);
+        document.title = searchQuery ? `Search: ${searchQuery} | Drafted` : 'Feed | Drafted';
+        // Reset feed on search change or initial load
+        setBlogs([]);
+        setPage(1);
+        setHasMore(true);
+        fetchBlogs(1, true);
+    }, [searchQuery]);
 
-    const fetchBlogs = async () => {
+    const fetchBlogs = async (pageNum, isReset = false) => {
+        if (pageNum === 1) setLoading(true);
+        else setIsFetchingMore(true);
+
         try {
-            const response = await api.get('/blogs');
-            const shuffled = response.data.sort(() => Math.random() - 0.5);
-            setBlogs(shuffled);
+            const endpoint = searchQuery
+                ? `/blogs?search=${encodeURIComponent(searchQuery)}&page=${pageNum}&limit=6`
+                : `/blogs?page=${pageNum}&limit=6`;
+
+            const response = await api.get(endpoint);
+
+            let newBlogs = [];
+            let totalPages = 1;
+
+            if (Array.isArray(response.data)) {
+                newBlogs = response.data;
+            } else {
+                newBlogs = response.data.blogs || [];
+                totalPages = response.data.totalPages || 1;
+            }
+
+            // Randomize sort only on initial load if no search
+            let data = newBlogs;
+            if (!searchQuery && pageNum === 1) {
+                data = newBlogs.sort(() => Math.random() - 0.5);
+            }
+
+            setBlogs(prev => isReset ? data : [...prev, ...data]);
+            setHasMore(pageNum < totalPages);
         } catch (error) {
             console.error('Failed to fetch blogs:', error);
             toast.error('Failed to load feed');
         } finally {
             setLoading(false);
+            setIsFetchingMore(false);
         }
+    };
+
+    const handleLoadMore = () => {
+        const nextPage = page + 1;
+        setPage(nextPage);
+        fetchBlogs(nextPage);
     };
 
     const handleLike = async (blogId, index) => {
@@ -62,8 +103,24 @@ function Feed({ user, setUser }) {
                     animate={{ opacity: 1, y: 0 }}
                     className="py-4"
                 >
-                    <h1 className="text-4xl font-heading italic font-medium text-gray-900 dark:text-white mb-2">Your Feed</h1>
-                    <p className="text-gray-600 dark:text-gray-400 font-display">Discover stories from the community</p>
+                    {searchQuery ? (
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h1 className="text-3xl font-heading italic font-medium text-gray-900 dark:text-white mb-2">
+                                    Results for "{searchQuery}"
+                                </h1>
+                                <p className="text-gray-600 dark:text-gray-400 font-display">{blogs.length} stories found</p>
+                            </div>
+                            <Link to="/feed" className="p-2 bg-gray-200 dark:bg-white/10 rounded-full hover:bg-gray-300 dark:hover:bg-white/20 transition-colors">
+                                <X size={20} className="text-gray-700 dark:text-white" />
+                            </Link>
+                        </div>
+                    ) : (
+                        <>
+                            <h1 className="text-4xl font-heading italic font-medium text-gray-900 dark:text-white mb-2">Your Feed</h1>
+                            <p className="text-gray-600 dark:text-gray-400 font-display">Discover stories from the community</p>
+                        </>
+                    )}
                 </motion.div>
 
                 {/* Posts */}
@@ -88,13 +145,29 @@ function Feed({ user, setUser }) {
                             />
                         ))}
                     </AnimatePresence>
+                    {/* Load More Button */}
+                    {!loading && hasMore && (
+                        <div className="flex justify-center pt-8">
+                            <button
+                                onClick={handleLoadMore}
+                                disabled={isFetchingMore}
+                                className="px-8 py-3 bg-white/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-full text-indigo-600 dark:text-indigo-400 font-bold text-sm tracking-wide uppercase hover:bg-white dark:hover:bg-white/10 transition-all flex items-center gap-2 disabled:opacity-50"
+                            >
+                                {isFetchingMore ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                        Loading...
+                                    </>
+                                ) : (
+                                    <>
+                                        Load More Stories
+                                        <ArrowRight size={16} />
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </div>
-
-                {blogs.length === 0 && (
-                    <div className="text-center py-20">
-                        <p className="text-gray-500 font-display">No stories in the feed yet.</p>
-                    </div>
-                )}
             </div>
 
             {/* Right Column - Interactive Sidebar */}
@@ -118,14 +191,13 @@ function Feed({ user, setUser }) {
                         </div>
                         <div className="flex flex-wrap gap-2.5">
                             {['Technology', 'Lifestyle', 'Design', 'AI', 'Writing', 'Creativity', 'Startups'].map((topic, i) => (
-                                <motion.button
+                                <Link
                                     key={topic}
-                                    whileHover={{ y: -2, scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                    className="px-4 py-2 bg-white/60 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-indigo-500/20 hover:border-indigo-500/30 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all duration-300"
+                                    to={`/feed?search=${topic}`}
+                                    className="px-4 py-2 bg-white/60 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-indigo-500/20 hover:border-indigo-500/30 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all duration-300 inline-block"
                                 >
                                     #{topic}
-                                </motion.button>
+                                </Link>
                             ))}
                         </div>
                     </motion.div>

@@ -258,42 +258,53 @@ const NotificationBell = ({ user, socket }) => {
                                             className="bg-transparent"
                                         >
                                             <Link
-                                                to={notification.blog?._id ? `/blog/${notification.blog._id}` : `/profile/${notification.sender?._id}`}
+                                                to={notification.blog?._id ? `/blog/${notification.blog.slug || notification.blog._id}` : `/profile/${notification.sender?._id}`}
                                                 onClick={() => setShowDropdown(false)}
-                                                className="flex items-start gap-3 p-4 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors border-b border-gray-100 dark:border-white/10 last:border-0 relative group"
+                                                className={`flex items-start gap-3 p-4 transition-colors border-b border-gray-100 dark:border-white/10 last:border-0 relative group ${!notification.isRead ? 'bg-indigo-50/40 dark:bg-indigo-900/10' : 'hover:bg-gray-50 dark:hover:bg-white/5'}`}
                                             >
-                                                <div className="flex-shrink-0 mt-1">
-                                                    {notification.type === 'like' ? (
-                                                        <div className="w-8 h-8 rounded-full bg-pink-500/10 flex items-center justify-center text-pink-500">
-                                                            <Heart size={14} fill="currentColor" />
-                                                        </div>
-                                                    ) : notification.type === 'follow' ? (
-                                                        <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
-                                                            <UserPlus size={14} />
-                                                        </div>
-                                                    ) : notification.type === 'unfollow' ? (
-                                                        <div className="w-8 h-8 rounded-full bg-gray-500/10 flex items-center justify-center text-gray-500">
-                                                            <UserPlus size={14} className="opacity-50" />
-                                                        </div>
-                                                    ) : (
-                                                        <div className="w-8 h-8 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-500">
-                                                            <MessageSquare size={14} fill="currentColor" />
-                                                        </div>
-                                                    )}
+                                                <div className="relative flex-shrink-0 mt-1">
+                                                    {/* Avatar */}
+                                                    <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-200 dark:border-white/10">
+                                                        {notification.sender?.profilePicture ? (
+                                                            <img src={notification.sender.profilePicture} className="w-full h-full object-cover" alt="" />
+                                                        ) : (
+                                                            <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
+                                                                {notification.sender?.name?.charAt(0) || '?'}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Icon Badge */}
+                                                    <div className="absolute -bottom-1 -right-1 bg-white dark:bg-gray-900 rounded-full p-0.5 shadow-sm">
+                                                        {notification.type === 'like' ? (
+                                                            <div className="w-5 h-5 rounded-full bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center text-pink-500">
+                                                                <Heart size={10} fill="currentColor" />
+                                                            </div>
+                                                        ) : notification.type === 'follow' ? (
+                                                            <div className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-500">
+                                                                <UserPlus size={10} />
+                                                            </div>
+                                                        ) : (
+                                                            <div className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-500">
+                                                                <MessageSquare size={10} fill="currentColor" />
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
+
                                                 <div className="flex-grow min-w-0">
                                                     <p className="text-sm text-gray-800 dark:text-gray-200 leading-snug">
                                                         <span className="font-bold">{notification.sender?.name}</span>
-                                                        {notification.type === 'like' ? ' liked your story ' :
-                                                            notification.type === 'comment' ? ' commented on ' :
-                                                                notification.type === 'follow' ? ' started following you' :
-                                                                    ' unfollowed you'}
+                                                        {notification.type === 'like' && <span className="text-gray-500 dark:text-gray-400"> liked your story</span>}
+                                                        {notification.type === 'comment' && <span className="text-gray-500 dark:text-gray-400"> commented on</span>}
+                                                        {notification.type === 'follow' && <span className="text-gray-500 dark:text-gray-400"> started following you</span>}
+
                                                         {notification.blog && (
-                                                            <span className="font-medium text-indigo-600 dark:text-indigo-400 italic"> "{notification.blog.title}"</span>
+                                                            <span className="font-medium text-gray-900 dark:text-white block truncate mt-0.5"> "{notification.blog.title}"</span>
                                                         )}
                                                     </p>
-                                                    {notification.content && (
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-1 italic">
+                                                    {notification.content && notification.type === 'comment' && (
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2 italic border-l-2 border-gray-200 dark:border-gray-700 pl-2">
                                                             "{notification.content}"
                                                         </p>
                                                     )}
