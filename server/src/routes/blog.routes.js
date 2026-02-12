@@ -14,7 +14,8 @@ import {
     getSavedBlogs,
     deleteComment,
     incrementView,
-    getTags
+    getTags,
+    getRelatedBlogs
 } from '../controllers/blog.controller.js';
 import { protect } from '../middlewares/auth.middleware.js';
 
@@ -34,6 +35,9 @@ router.get('/my', protect, getMyBlogs);
 
 // GET /api/blogs/saved (protected)
 router.get('/saved', protect, getSavedBlogs);
+
+// GET /api/blogs/:id/related
+router.get('/:id/related', getRelatedBlogs);
 
 // GET /api/blogs/:id
 router.get('/:id', getBlogById);

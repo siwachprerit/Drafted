@@ -460,6 +460,8 @@ export const incrementView = async (req, res) => {
     }
 };
 
+// ... existing exports ...
+
 export const getTags = async (req, res) => {
     try {
         const tags = await Blog.aggregate([
@@ -472,5 +474,32 @@ export const getTags = async (req, res) => {
     } catch (error) {
         console.error('[TAGS] Controller crashed:', error);
         res.status(500).json({ message: 'Server error fetching tags' });
+    }
+};
+
+export const getRelatedBlogs = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const blog = await Blog.findById(id);
+        if (!blog) {
+            return res.status(404).json({ message: 'Blog not found' });
+        }
+
+        const relatedBlogs = await Blog.find({
+            _id: { $ne: id }, // Exclude current blog
+            tags: { $in: blog.tags }, // Must share at least one tag
+            isPublished: true
+        })
+            .populate('author', 'name profilePicture')
+            .limit(3); // Limit to 3 related posts
+
+        // If not enough related posts, fallback to recent posts?
+        // For now, just return what we found.
+
+        res.status(200).json(relatedBlogs);
+    } catch (error) {
+        console.error('[RELATED] Controller crashed:', error);
+        res.status(500).json({ message: 'Server error fetching related blogs' });
     }
 };
